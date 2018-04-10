@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	logFile = kingpin.Flag("collector.chef-client.logfile", "Logfile to monitor chef-client runs.").Default("/var/log/chefrun").String()
+	logFile = kingpin.Flag("collector.chefclient.logfile", "Logfile to monitor chef-client runs.").Default("/var/log/chefrun").String()
 )
 
 type chefclientCollector struct {
@@ -21,11 +21,11 @@ type chefclientCollector struct {
 }
 
 func init() {
-	registerCollector("chef-client", defaultDisabled, NewChefclientCollector)
+	registerCollector("chefclient", defaultDisabled, NewChefclientCollector)
 }
 
 func NewChefclientCollector() (Collector, error) {
-	const subsystem = "chef-client"
+	const subsystem = "chefclient"
 
 	return &chefclientCollector{
 		metric: []typedDesc{
