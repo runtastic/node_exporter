@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
-	"log"
+	"github.com/prometheus/common/log"
 	"os"
 )
 
@@ -29,10 +29,13 @@ func NewOomCollector() (Collector, error) {
 
 func (c *oomCollector) Update(ch chan<- prometheus.Metric) error {
 	oom_count, err := grepFile(getSyslogFile(), []byte("Killed process"))
+
 	if err != nil {
 		return fmt.Errorf("couldn't get oom value: %s", err)
 	}
+
 	ch <- c.metric[0].mustNewConstMetric(oom_count)
+
 	return err
 }
 
@@ -40,7 +43,9 @@ func grepFile(file string, pat []byte) (oom_count float64, err error) {
 	patCount := float64(0)
 	f, err := os.Open(file)
 	if err != nil {
-		log.Fatal(err)
+		log.Error(err)
+		return patCount, err
+		defer f.Close()
 	}
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
@@ -65,6 +70,6 @@ func getSyslogFile() (logfile string) {
 		}
 	}
 
-	log.Fatal("no syslog file found")
+	log.Error("no syslog file found")
 	return ""
 }
