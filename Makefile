@@ -11,20 +11,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+include Makefile.common
+
 GO     ?= GO15VENDOREXPERIMENT=1 go
-GOPATH := $(firstword $(subst :, ,$(shell $(GO) env GOPATH)))
 GOARCH := $(shell $(GO) env GOARCH)
 GOHOSTARCH := $(shell $(GO) env GOHOSTARCH)
 
-PROMTOOL    ?= $(GOPATH)/bin/promtool
-PROMU       ?= $(GOPATH)/bin/promu
-STATICCHECK ?= $(GOPATH)/bin/staticcheck
-pkgs         = $(shell $(GO) list ./... | grep -v /vendor/)
+PROMTOOL    ?= $(FIRST_GOPATH)/bin/promtool
 
-PREFIX                  ?= $(shell pwd)
-BIN_DIR                 ?= $(shell pwd)
 DOCKER_IMAGE_NAME       ?= node-exporter
-DOCKER_IMAGE_TAG        ?= $(subst /,-,$(shell git rev-parse --abbrev-ref HEAD))
 MACH                    ?= $(shell uname -m)
 DOCKERFILE              ?= Dockerfile
 
@@ -37,7 +32,7 @@ else
 endif
 
 ifeq ($(GOHOSTARCH),amd64)
-        ifneq ($(OS_detected),SunOS)
+	ifeq ($(OS_detected),$(filter $(OS_detected),Linux FreeBSD Darwin Windows))
                 # Only supported on amd64
                 test-flags := -race
         endif
@@ -49,10 +44,12 @@ else
     test-e2e := skip-test-e2e
 endif
 
+e2e-out = collector/fixtures/e2e-output.txt
 ifeq ($(MACH), ppc64le)
-	e2e-out = collector/fixtures/e2e-ppc64le-output.txt
-else
-	e2e-out = collector/fixtures/e2e-output.txt
+	e2e-out = collector/fixtures/e2e-64k-page-output.txt
+endif
+ifeq ($(MACH), aarch64)
+	e2e-out = collector/fixtures/e2e-64k-page-output.txt
 endif
 
 # 64bit -> 32bit mapping for cross-checking. At least for amd64/386, the 64bit CPU can execute 32bit code but not the other way around, so we don't support cross-testing upwards.
@@ -68,15 +65,10 @@ endef
 
 # By default, "cross" test with ourselves to cover unknown pairings.
 $(eval $(call goarch_pair,amd64,386))
-$(eval $(call goarch_pair,arm64,arm))
 $(eval $(call goarch_pair,mips64,mips))
 $(eval $(call goarch_pair,mips64el,mipsel))
 
-all: format vet staticcheck checkmetrics build test $(cross-test) $(test-e2e)
-
-style:
-	@echo ">> checking code style"
-	@! gofmt -d $(shell find . -path ./vendor -prune -o -name '*.go' -print) | grep '^'
+all: style vet staticcheck checkmetrics build test $(cross-test) $(test-e2e)
 
 test: collector/fixtures/sys/.unpacked
 	@echo ">> running tests"
@@ -91,6 +83,7 @@ skip-test-32bit:
 
 collector/fixtures/sys/.unpacked: collector/fixtures/sys.ttar
 	@echo ">> extracting sysfs fixtures"
+	if [ -d collector/fixtures/sys ] ; then rm -r collector/fixtures/sys ; fi
 	./ttar -C collector/fixtures -x -f collector/fixtures/sys.ttar
 	touch $@
 
@@ -105,26 +98,6 @@ checkmetrics: $(PROMTOOL)
 	@echo ">> checking metrics for correctness"
 	./checkmetrics.sh $(PROMTOOL) $(e2e-out)
 
-format:
-	@echo ">> formatting code"
-	@$(GO) fmt $(pkgs)
-
-vet:
-	@echo ">> vetting code"
-	@$(GO) vet $(pkgs)
-
-staticcheck: $(STATICCHECK)
-	@echo ">> running staticcheck"
-	@$(STATICCHECK) -ignore "$(STATICCHECK_IGNORE)" $(pkgs)
-
-build: $(PROMU)
-	@echo ">> building binaries"
-	@$(PROMU) build --prefix $(PREFIX)
-
-tarball: $(PROMU)
-	@echo ">> building release tarball"
-	@$(PROMU) tarball --prefix $(PREFIX) $(BIN_DIR)
-
 docker:
 ifeq ($(MACH), ppc64le)
 	$(eval DOCKERFILE=Dockerfile.ppc64le)
@@ -136,20 +109,13 @@ test-docker:
 	@echo ">> testing docker image"
 	./test_image.sh "$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)" 9100
 
-$(GOPATH)/bin/promtool promtool:
+$(FIRST_GOPATH)/bin/promtool promtool:
 	@GOOS= GOARCH= $(GO) get -u github.com/prometheus/prometheus/cmd/promtool
 
-$(GOPATH)/bin/promu promu:
-	@GOOS= GOARCH= $(GO) get -u github.com/prometheus/promu
-
-$(GOPATH)/bin/staticcheck:
-	@GOOS= GOARCH= $(GO) get -u honnef.co/go/tools/cmd/staticcheck
-
-
-.PHONY: all style format build test test-e2e vet tarball docker promtool promu staticcheck checkmetrics
+.PHONY: test-e2e promtool checkmetrics
 
 # Declaring the binaries at their default locations as PHONY targets is a hack
 # to ensure the latest version is downloaded on every make execution.
 # If this is not desired, copy/symlink these binaries to a different path and
 # set the respective environment variables.
-.PHONY: $(GOPATH)/bin/promtool $(GOPATH)/bin/promu $(GOPATH)/bin/staticcheck
+.PHONY: $(FIRST_GOPATH)/bin/promtool

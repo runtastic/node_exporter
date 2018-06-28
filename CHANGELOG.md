@@ -7,7 +7,7 @@
 * [ENHANCEMENT]
 * [BUGFIX]
 
-## 0.16.0-rc.1 / 2018-04-04
+## 0.16.0 / 2018-05-15
 
 **Breaking changes**
 
@@ -16,10 +16,11 @@ This release contains major breaking changes to metric names.  Many metrics have
 * Many counter metrics have been renamed to include `_total`.
 * Many metrics have been renamed/modified to include base units, for example `node_cpu` is now `node_cpu_seconds_total`.
 
-In order to help with backwards compatibility, a `metric_relabel_config` is being worked on to allow for easier transition of metric names.  See: https://github.com/prometheus/node_exporter/issues/830
+In order to help with the transition we have an [upgrade guide](docs/V0_16_UPGRADE_GUIDE.md).
 
 Other breaking changes:
 * The megacli collector has been removed, is now replaced by the storcli.py textfile helper.
+* The gmond collector has been removed.
 * The textfile collector will now treat timestamps as errors.
 
 * [CHANGE] Split out guest cpu metrics on Linux. #744
@@ -30,11 +31,13 @@ Other breaking changes:
 * [CHANGE] Cleanup NFS metrics #834
 * [CHANGE] Only report core throttles per core, not per cpu #836
 * [CHANGE] Treat custom textfile metric timestamps as errors #769
-* [CHANGE] Drop exec_ in boot_timestamp_seconds on *bsd #839
 * [CHANGE] Use lowercase cpu label name in interrupts #849
 * [CHANGE] Enable bonding collector by default. #872
 * [CHANGE] Greatly reduce the metrics vmstat returns by default. #874
 * [CHANGE] Greatly trim what netstat collector exposes by default #876
+* [CHANGE] Drop `exec_` prefix and move `node_boot_time_seconds` from `exec` to new `boottime` collector and enable for Darwin/Dragonfly/FreeBSD/NetBSD/OpenBSD. #839, #901
+* [CHANGE] Remove depreated gmond collector #852
+* [CHANGE] align Darwin disk stat names with Linux #930
 * [FEATURE] Add `collect[]` parameter #699
 * [FEATURE] Add text collector conversion for ipmitool output. #746
 * [FEATURE] Add openbsd meminfo #724
@@ -56,6 +59,10 @@ Other breaking changes:
 * [BUGFIX] smartmon: Escape double quotes in device model family #772
 * [BUGFIX] Fix log level regression in #533 #815
 * [BUGFIX] Correct the ClocksPerSec scaling factor on Darwin #846
+* [BUGFIX] Count core throttles per core and per package #871
+* [BUGFIX] Fix netdev collector for linux #890 #910
+* [BUGFIX] Fix memory corruption when number of filesystems > 16 on FreeBSD #900
+* [BUGFIX] Fix parsing of interface aliases in netdev linux #904
 
 ## 0.15.2 / 2017-12-06
 
